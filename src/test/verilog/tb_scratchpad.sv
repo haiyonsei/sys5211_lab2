@@ -4,21 +4,14 @@
 
 module tb_SimpleDmaTop;
 
-  // ----------------------------------------------------------------
-  // 테스트 파라미터 (Chisel 엘라보레이션 시 설정과 일치해야 함)
-  // ----------------------------------------------------------------
-  localparam int BEAT_BYTES  = 8;    // 64-bit beat
-  localparam int NBEATS      = 8;    // 총 8 beat (64B)
-  localparam int TOTAL_BYTES = BEAT_BYTES * NBEATS; // 64
-  localparam int SRAM_DEPTH  = 32;   // spaddr 폭 = 5비트
+  localparam int BEAT_BYTES  = 8;
+  localparam int NBEATS      = 8;
+  localparam int TOTAL_BYTES = BEAT_BYTES * NBEATS;
+  localparam int SRAM_DEPTH  = 32;
 
-  // ----------------------------------------------------------------
-  // DUT 포트 선언 (Chisel 평탄화 규칙에 맞춰 네이밍)
-  // ----------------------------------------------------------------
   reg  clock;
   reg  reset;
 
-  // DMA read (Decoupled)
   wire        io_dma_read_ready;
   reg         io_dma_read_valid;
   reg  [63:0] io_dma_read_bits_vaddr;
@@ -26,24 +19,17 @@ module tb_SimpleDmaTop;
   reg  [15:0] io_dma_read_bits_bytes;
   reg  [7:0]  io_dma_read_bits_cmdId;
 
-  // DMA resp (Valid)
   wire        io_dma_resp_valid;
   wire [15:0] io_dma_resp_bits_bytesRead;
   wire [7:0]  io_dma_resp_bits_cmdId;
 
-  // Scratchpad debug port
   reg         io_spad_dbgRdEn;
   reg  [4:0]  io_spad_dbgRdAddr;
   wire [63:0] io_spad_dbgRdData;
   reg [63:0] got;
 
-  // Busy
   wire        io_busy;
 
-  // ----------------------------------------------------------------
-  // DUT 인스턴스 (Chisel에서 같은 인자값으로 Verilog를 뽑아야 함)
-  // module명/포트명은 생성된 Verilog에 맞춰 조정하세요.
-  // ----------------------------------------------------------------
   SimpleDmaTop dut (
     .clock                      (clock),
     .reset                      (reset),
@@ -66,16 +52,9 @@ module tb_SimpleDmaTop;
     .io_busy                    (io_busy)
   );
 
-  // ----------------------------------------------------------------
-  // 클록 생성
-  // ----------------------------------------------------------------
   initial clock = 0;
-  always #5 clock = ~clock; // 100MHz 등가
+  always #5 clock = ~clock; 
 
-  // ----------------------------------------------------------------
-  // 기대값 (ROM에 넣은 8개의 64b 워드와 동일해야 함)
-  // ROM 바이트 시퀀스는 리틀엔디안으로 엘라보레이션되어야 함.
-  // ----------------------------------------------------------------
   reg [63:0] expected [0:NBEATS-1];
   initial begin
     expected[0] = 64'hDEADBEEFCAFEBABE;
@@ -88,9 +67,6 @@ module tb_SimpleDmaTop;
     expected[7] = 64'h0F1E2D3C4B5A6978;
   end
 
-  // ----------------------------------------------------------------
-  // 유틸리티 태스크
-  // ----------------------------------------------------------------
   task automatic step(input int n = 1);
     repeat (n) @(posedge clock);
   endtask
@@ -121,22 +97,17 @@ module tb_SimpleDmaTop;
     begin
       io_spad_dbgRdEn   = 1'b1;
       io_spad_dbgRdAddr = addr;
-      step(1); // SyncReadMem 1-cycle latency
+      step(1);
       dout = io_spad_dbgRdData;
     end
   endtask
 
-  // ----------------------------------------------------------------
-  // 메인 시나리오
-  // ----------------------------------------------------------------
   initial begin
-    // 파형 덤프(선택)
     `ifdef WAVES
       $dumpfile("tb_SimpleDmaTop.vcd");
       $dumpvars(0, tb_SimpleDmaTop);
     `endif
 
-    // 초기화
     reset                      = 1'b1;
     io_dma_read_valid          = 1'b0;
     io_dma_read_bits_vaddr     = 64'd0;
@@ -150,18 +121,16 @@ module tb_SimpleDmaTop;
     reset = 1'b0;
     step(2);
 
-    // 멀티-beat DMA 요청 (64B = 8 * 8B)
-    io_dma_read_bits_vaddr = 64'd0;            // romBase = 0
-    io_dma_read_bits_spaddr = 5'd0;            // spad base idx
-    io_dma_read_bits_bytes  = TOTAL_BYTES[15:0]; // 64
+    io_dma_read_bits_vaddr = 64'd0;           
+    io_dma_read_bits_spaddr = 5'd0;
+    io_dma_read_bits_bytes  = TOTAL_BYTES[15:0]; 
     io_dma_read_bits_cmdId  = 8'd7;
 
     io_dma_read_valid = 1'b1;
-    wait_ready();      // ready 뜰 때까지 대기
-    step(1);           // 핸드셰이크 성립 사이클
+    wait_ready();     
+    step(1);          
     io_dma_read_valid = 1'b0;
 
-    // 응답 대기 후 검증
     wait_resp();
     if (io_dma_resp_bits_cmdId !== 8'd7) begin
       $fatal(1, "[TB] cmdId mismatch: got %0d", io_dma_resp_bits_cmdId);
@@ -170,7 +139,6 @@ module tb_SimpleDmaTop;
       $fatal(1, "[TB] bytesRead mismatch: got %0d", io_dma_resp_bits_bytesRead);
     end
 
-    // 스크래치패드 내용 확인
     for (int i = 0; i < NBEATS; i++) begin
       spad_read(i[4:0], got);
       $display("[TB] spad[%0d] = 0x%016h (expect 0x%016h)", i, got, expected[i]);

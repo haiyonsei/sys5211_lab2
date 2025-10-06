@@ -21,5 +21,8 @@ module SimpleDmaToSram(
   output [63:0] io_spad_dbgRdData,
   output        io_busy
 );
+
+// Write your code here
+
 endmodule
 
