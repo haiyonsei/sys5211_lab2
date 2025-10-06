@@ -69,6 +69,7 @@ Your goal is to match the simulation results from make ref exactly.
 
 * Testbench: tb_scratchpad.sv is provided to drive and validate your design.
 * Ensure that the outputs from your Verilog implementation match those from the reference Chisel-generated design.
+* When you see the message "[TB] PASS: 8 beats transferred and verified.", it indicates that the code has been successfully verified.
 
 **Summary**
 
